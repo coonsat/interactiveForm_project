@@ -319,50 +319,62 @@ document.addEventListener("DOMContentLoaded", function() {
 
         //Check details of card number used for payment
         const paymentFieldSet = getDomElement('.payment-methods');
-        const cardNumber = getDomElement('#' + 'cc-num');
-        const cardNumberParent = getParentElement(cardNumber);
-        if ( !validateForm.card('cardNumber', cardNumber.value) ) {
-            console.log("I am here")
-            setValidity(false, cardNumberParent);
-            setVisibility(false, cardNumberParent.lastElementChild);
-            valid = false;
-        } else {
-            setValidity(true, cardNumberParent);
-            setVisibility(true, cardNumberParent.lastElementChild);
+        const paymentType = getDomElement('#payment').value;
+
+        if (paymentType === 'credit-card') {
+            let paymentValid = true;
+            const cardNumber = getDomElement('#cc-num');
+            const cardNumberParent = getParentElement(cardNumber);
+            if ( !validateForm.card('cardNumber', cardNumber.value) ) {
+                console.log("I am here")
+                setValidity(false, cardNumberParent);
+                setVisibility(false, cardNumberParent.lastElementChild);
+                paymentValid = false;
+            } else {
+                setValidity(true, cardNumberParent);
+                setVisibility(true, cardNumberParent.lastElementChild);
+            }
+
+            //Check details of zip used for payment
+            const zip = getDomElement('#zip');
+            const zipParent = getParentElement(zip);
+            if ( !validateForm.card('zip', zip.value) ) {
+                setValidity(false, zipParent);
+                setVisibility(false, zipParent.lastElementChild);
+                paymentValid = false;
+            } else {
+                setValidity(true, zipParent);
+                setVisibility(true, zipParent.lastElementChild);
+            }
+
+            //Check details of ccv used for payment
+            const ccv = getDomElement('#' + 'cvv');
+            const ccvParent = getParentElement(ccv);
+            if ( !validateForm.card('ccv', ccv.value) ) {
+                // 
+                setValidity(false, ccvParent);
+                setVisibility(false, ccvParent.lastElementChild);
+                paymentValid = false;
+            } else {
+                setValidity(true, ccvParent);
+                setVisibility(true, ccvParent.lastElementChild);
+            }
+
+            if ( !paymentValid ) {
+                setFieldSetValidity(false, 'payment-methods', paymentFieldSet);
+                valid = false;
+            } else {
+                setFieldSetValidity(true, 'payment-methods', paymentFieldSet);
+            }
+
         }
 
-        //Check details of zip used for payment
-        const zip = getDomElement('#' + 'zip');
-        const zipParent = getParentElement(zip);
-        if ( !validateForm.card('zip', zip.value) ) {
-            setValidity(false, zipParent);
-            setVisibility(false, zipParent.lastElementChild);
-            valid = false;
-        } else {
-            setValidity(true, zipParent);
-            setVisibility(true, zipParent.lastElementChild);
-        }
-
-        //Check details of ccv used for payment
-        const ccv = getDomElement('#' + 'cvv');
-        const ccvParent = getParentElement(ccv);
-        if ( !validateForm.card('ccv', ccv.value) ) {
-            // 
-            setValidity(false, ccvParent);
-            setVisibility(false, ccvParent.lastElementChild);
-            valid = false;
-        } else {
-            setValidity(true, ccvParent);
-            setVisibility(true, ccvParent.lastElementChild);
-        }
-
-        console.log(valid)
         if ( !valid ) {
-            setFieldSetValidity(false, 'payment-methods', paymentFieldSet);
             event.preventDefault();
         } else {
             setFieldSetValidity(true, 'payment-methods', paymentFieldSet);
         }
+        
     });
 
 })
