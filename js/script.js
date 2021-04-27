@@ -9,22 +9,82 @@ document.addEventListener("DOMContentLoaded", function() {
 
     const setValidity = (valid, element) => {
         element.className = valid ? "valid" : "not-valid";
-    }
+    };
 
-    const setVisibility = (valid, element) => {
-        if (!valid) {
-            element.className = "";
-            element.display = "inline";
+    const setVisibility = (visible, element) => {
+        if (visible) {
+            element.visibility = "visible";
         } else {
-            element.className = "hint";
-            element.display = "none";
+            element.visibility = "hidden";
         }
+    };
+
+    const setFieldSetValidity = (valid, mainClass, element) => {
+        element.className = valid ? mainClass + " valid" : mainClass + " not-valid";
+    };
+
+    const getParentElement = element => {
+        return element.parentElement;
     }
 
-    const setFieldSetValidity = (valid, element) => {
-        element.className = valid ? "activities valid" : "activities not-valid";
-    }
+    //Fetch all relevant information from a label tag and
+    //return an object.
+    const getCourseInfo = (courseName, timeFrame) => {
+        let courseInfo = new Object();
+        courseInfo.name = courseName;
 
+        if (timeFrame !== null) {
+            const day = timeFrame.substring( 0, timeFrame.indexOf(' ') );
+            const start = timeFrame.substring( timeFrame.indexOf(' ') + 1, timeFrame.indexOf('-') );
+            const end = timeFrame.substring( timeFrame.indexOf('-') + 1, timeFrame.length );
+
+            //For day
+            courseInfo.day = day;
+
+            //For start time (convert to 24 hour time)
+            if ( start.includes('pm') ) {
+                courseInfo.start = parseInt(start.substring(0, start.length - 1)) + 12;
+            } else {
+                courseInfo.start = parseInt(start.substring(0, start.length - 1));
+            }
+    
+            //For end time (convert to 24 hour time)
+            if ( end.includes('pm') && !end.includes('12') ) {
+                courseInfo.end = parseInt(end.substring(0, end.length - 1)) + 12;
+            } else {
+                courseInfo.end = parseInt(end.substring(0, end.length - 1));
+            }
+
+            return courseInfo;
+        } else {
+            return null;
+        }
+    };
+
+    //Evaluate whether there is overlap between the schedules
+    const checkForOverlap = (selectedActivity, comparisonActivity) => {
+        //case 1: if start doesn't exist then there is no overlap
+        if ( !selectedActivity.start ) return false;
+
+        //case 2: if the days aren't the same then no overlap exists
+        if ( selectedActivity.day !== comparisonActivity.day ) return false;
+
+        //case 3: if unselected start GTE selected start AND unselected end LTE selected end
+        if ( (comparisonActivity.start >= selectedActivity.start) && (comparisonActivity.end <= selectedActivity.end) ) return true;
+
+        //case 4: if unselected start LTE selected start AND unselected end GTE selected start
+        if ( (comparisonActivity.start <= selectedActivity.start) && (comparisonActivity.end >= selectedActivity.start) ) return true;
+
+        //case 5: if unselected start GTE selected start AND unselected start LTE selected end
+        if ( (comparisonActivity.start >= selectedActivity.start) && (comparisonActivity.start <= selectedActivity.end) ) return true;
+        
+        //case 6: if unselected start LTE selected start AND unselected end GTE selected end
+        if ( (comparisonActivity.start <= selectedActivity.end) && (comparisonActivity.end >= selectedActivity.end) ) return true;
+        return false;
+    };
+
+    //Treat the validation as an object that offers multiple functions
+    //relating to the required validation.
     const validateForm = {
 
         name : function(name) {
@@ -48,7 +108,7 @@ document.addEventListener("DOMContentLoaded", function() {
         card : function(cardDetail, value) {
             switch(cardDetail) {
                 case "cardNumber":
-                    if ( value.length <= 13 && value.length >= 16 ) return false;
+                    if ( value.length <= 13 || value.length >= 16 ) return false;
                     return true;
 
                 case "zip":
@@ -63,21 +123,23 @@ document.addEventListener("DOMContentLoaded", function() {
                     return false;
             }
         }
-
     };
 
+    //Set nameInput as focus when DOM loaded
     const nameInput = getDomElement('#name');
     nameInput.focus();
 
+    //Set up other job field to be hidden when
+    //other job from drop down not selected
     const otherJobInput = getDomElement('.other-job-role');
-    otherJobInput.style.display = "none";
+    otherJobInput.style.visibility = "hidden";
 
     const jobRoles = getDomElement('#title');
     jobRoles.addEventListener('change', function() {
         if (this.value === "other") {
-            otherJobInput.style.display = "inline";
+            otherJobInput.style.visibility = "visible";
         } else {
-            otherJobInput.style.display = "none";
+            otherJobInput.style.visibility = "hidden";
         }
     });
 
@@ -116,12 +178,56 @@ document.addEventListener("DOMContentLoaded", function() {
         costDisplay.textContent = "";
         cost = 0;
         const children = this.children.item(1).children;
+
+        //Sums total price of selected activities
         Array.from(children).forEach(activity => {
             if (activity.children[0].checked) {
                 cost += parseInt(activity.children[0].dataset.cost);
             }
         })
         costDisplay.textContent = "Total: $" + cost;
+
+        //Checks for overlapping events
+        //1. Get all courses that the user is attending / has checked
+        let attendingCourses = [];
+        Array.from(children).forEach(activity => {
+            if (activity.children[0].checked) {
+                const courseInfo = getCourseInfo(activity.children[1].textContent, activity.children[2].textContent);
+                attendingCourses.push(courseInfo);
+            }
+        });
+
+        //2. Compare all activities against those that are checked
+        Array.from(children).forEach(activity => {
+            // if courses have been checked then check for overlaps
+            // if no courses have been checked then enable all fields
+            if (attendingCourses.length > 0 ) {
+                const courseInfo = getCourseInfo(activity.children[1].textContent, activity.children[2].textContent);
+                let overlap = false;
+
+                // iterate over attending courses. Ignore the identical object 
+                // If overlap found then break loop (no need to evaluate 
+                // further cases in outer loop)
+                for (let i = 0 ; i < attendingCourses.length ; i++) {
+                    if (attendingCourses[i].name !== courseInfo.name) {
+                        overlap = checkForOverlap(attendingCourses[i], courseInfo);
+                        if (overlap) break; 
+                    }
+                }
+
+                // Disable activity if overlap is found
+                if (overlap) {
+                    activity.children[0].disabled = true;
+                    activity.className = 'disabled';
+                } else {
+                    activity.children[0].disabled = false;
+                    activity.className = '';
+                }
+
+            } else {
+                activity.children[0].disabled = false;
+            }
+        });
     });
 
     //9. Accessibility for input elements
@@ -130,6 +236,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const children = activities.children.item(1).children;
     Array.from(children).forEach(label => {
         inputElement = label.children[0];
+
         inputElement.addEventListener('focus', function(event) {
             label.className = "focus";
         });
@@ -152,8 +259,7 @@ document.addEventListener("DOMContentLoaded", function() {
             if (element) element.style.visibility = "hidden";
         }
     });
-    //Iterate through payment options to find which
-    //is the selected option. 
+    //Iterate through payment options to find which is the selected option. 
     //If the option.value matches the selected value then set the view to visible.
     //If not then hide the view
     payment.addEventListener('change', function() {
@@ -205,42 +311,58 @@ document.addEventListener("DOMContentLoaded", function() {
         const costString = costElement.textContent;
         const totalCost = costString.substring( costString.indexOf('$') + 1 );
         if ( !validateForm.cost( parseInt(totalCost) ) ) {
-            setValidity(false, costFieldSet);
+            setFieldSetValidity(false, 'activities', costFieldSet);
             valid = false;
         } else {
-            setValidity(true, costFieldSet);
+            setFieldSetValidity(true, 'activities', costFieldSet);
         }
 
         //Check details of card number used for payment
+        const paymentFieldSet = getDomElement('.payment-methods');
         const cardNumber = getDomElement('#' + 'cc-num');
-        console.log(cardNumber);
-        if ( !validateForm.card('cardNumber', cardNumber.value)) {
-            setFieldSetValidity(false, costFieldSet);
+        const cardNumberParent = getParentElement(cardNumber);
+        if ( !validateForm.card('cardNumber', cardNumber.value) ) {
+            console.log("I am here")
+            setValidity(false, cardNumberParent);
+            setVisibility(false, cardNumberParent.lastElementChild);
             valid = false;
         } else {
-            setFieldSetValidity(true, costFieldSet);
+            setValidity(true, cardNumberParent);
+            setVisibility(true, cardNumberParent.lastElementChild);
         }
 
         //Check details of zip used for payment
         const zip = getDomElement('#' + 'zip');
+        const zipParent = getParentElement(zip);
         if ( !validateForm.card('zip', zip.value) ) {
-            setFieldSetValidity(false, costFieldSet);
+            setValidity(false, zipParent);
+            setVisibility(false, zipParent.lastElementChild);
             valid = false;
         } else {
-            setFieldSetValidity(true, costFieldSet);
+            setValidity(true, zipParent);
+            setVisibility(true, zipParent.lastElementChild);
         }
 
         //Check details of ccv used for payment
         const ccv = getDomElement('#' + 'cvv');
+        const ccvParent = getParentElement(ccv);
         if ( !validateForm.card('ccv', ccv.value) ) {
-            setFieldSetValidity(false, costFieldSet);
+            // 
+            setValidity(false, ccvParent);
+            setVisibility(false, ccvParent.lastElementChild);
             valid = false;
         } else {
-            setFieldSetValidity(true, costFieldSet);
+            setValidity(true, ccvParent);
+            setVisibility(true, ccvParent.lastElementChild);
         }
 
         console.log(valid)
-        if ( !valid ) event.preventDefault();
+        if ( !valid ) {
+            setFieldSetValidity(false, 'payment-methods', paymentFieldSet);
+            event.preventDefault();
+        } else {
+            setFieldSetValidity(true, 'payment-methods', paymentFieldSet);
+        }
     });
 
 })
