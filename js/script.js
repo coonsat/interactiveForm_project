@@ -7,18 +7,26 @@ document.addEventListener("DOMContentLoaded", function() {
         return document.querySelector(value);
     };
 
+    //Replaces the class of the element passed through according
+    //to whether the element is valid or not. 
     const setValidity = (valid, element) => {
         element.className = valid ? "valid" : "not-valid";
     };
 
+    //Method to set the element to visible or not. 
+    //This can be confusing when interpreted from method calling point of view
+    //If true is passed in, then show the element, if false then hide.
+    //In most cases the element will show when the validity is false. 
+    //So consider the method in isolation. 
     const setVisibility = (visible, element) => {
         if (visible) {
-            element.visibility = "visible";
+            element.style.display = "inline";
         } else {
-            element.visibility = "hidden";
+            element.style.display = "none";
         }
     };
 
+    //sets the visibility of the field set and adds any extra classes if needed
     const setFieldSetValidity = (valid, mainClass, element) => {
         element.className = valid ? mainClass + " valid" : mainClass + " not-valid";
     };
@@ -88,16 +96,12 @@ document.addEventListener("DOMContentLoaded", function() {
     const validateForm = {
 
         name : function(name) {
-            if ( name.length === 0 ) return false;
-            return true;
+            return /^\w{1,}$/.test(name);
         },
 
+        //Code sourced from team treehours "Regular expressions in JavaScript"
         email : function(email) {
-            if ( !email.includes('@') ) return false;
-            if ( !email.includes('.com') ) return false;
-            if ( (email.substr(0, email.indexOf('@') - 1).length) === 0 ) return false;
-            if ( (email.substr(email.indexOf('@') + 1, email.indexOf('.com') - 1).length) === 0 ) return false;
-            return true;
+            return /[^@]+@[^\.]+\..+/.test(email);
         },
 
         cost : function(cost) {
@@ -108,16 +112,13 @@ document.addEventListener("DOMContentLoaded", function() {
         card : function(cardDetail, value) {
             switch(cardDetail) {
                 case "cardNumber":
-                    if ( value.length <= 13 || value.length >= 16 ) return false;
-                    return true;
+                    return /^\d{13,16}$/.test(value);
 
                 case "zip":
-                    if ( value.length !== 5 ) return false;
-                    return true;
+                    return /^\d{5}$/.test(value);
 
                 case "ccv":
-                    if ( value.length !== 3) return false;
-                    return true;
+                    return /^\d{3}$/.test(value);
 
                 default:
                     return false;
@@ -125,21 +126,31 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     };
 
-    //Set nameInput as focus when DOM loaded
+    //Set name input field as focus when DOM loaded
     const nameInput = getDomElement('#name');
     nameInput.focus();
+
+    //Add event listener to email to assist user in creating
+    //a properly formed email
+    const emailInput = getDomElement('#email');
+    const emailParent = getParentElement(emailInput);
+    emailInput.addEventListener('input', function(event){
+        const emailValid = validateForm.email(event.target.value);
+        setValidity(emailValid, emailParent);
+        setVisibility(!emailValid, emailParent.lastElementChild);
+    })
 
     //Set up other job field to be hidden when
     //other job from drop down not selected
     const otherJobInput = getDomElement('.other-job-role');
-    otherJobInput.style.visibility = "hidden";
+    setVisibility(false, otherJobInput);
 
     const jobRoles = getDomElement('#title');
     jobRoles.addEventListener('change', function() {
         if (this.value === "other") {
-            otherJobInput.style.visibility = "visible";
+            setVisibility(true, otherJobInput);
         } else {
-            otherJobInput.style.visibility = "hidden";
+            setVisibility(false, otherJobInput);
         }
     });
 
@@ -230,18 +241,18 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     });
 
-    //9. Accessibility for input elements
+    //9. Accessibility for input elements via tab button
     //add two event listeners to the parent class of the selected
     //input item. The classes will be overwritten each time. 
     const children = activities.children.item(1).children;
     Array.from(children).forEach(label => {
         inputElement = label.children[0];
 
-        inputElement.addEventListener('focus', function(event) {
+        inputElement.addEventListener('focus', function() {
             label.className = "focus";
         });
 
-        inputElement.addEventListener('blur', function(event) {
+        inputElement.addEventListener('blur', function() {
             label.className = "blur";
         });
     });
@@ -256,7 +267,8 @@ document.addEventListener("DOMContentLoaded", function() {
             option.selected = true;
         } else {
             let element = getDomElement('#' + option.value);
-            if (element) element.style.visibility = "hidden";
+            // if (element) element.style.display = "none";
+            if (element) setVisibility(false, element);
         }
     });
     //Iterate through payment options to find which is the selected option. 
@@ -266,10 +278,10 @@ document.addEventListener("DOMContentLoaded", function() {
         Array.from(payment.options).forEach(option => {
             if (option.value === this.value) {
                 let selected = getDomElement('#' + this.value);
-                selected.style.visibility = "visible";
+                selected.style.display = "block";
             } else {
                 let nonSelected = getDomElement('#' + option.value);
-                if (nonSelected) nonSelected.style.visibility = "hidden";
+                if (nonSelected) setVisibility(false, nonSelected);
             }
         });
     });
@@ -285,12 +297,12 @@ document.addEventListener("DOMContentLoaded", function() {
         const name = getDomElement('#name');
         const nameLabel = name.parentElement;
         if ( !validateForm.name(name.value) ) {
-            setValidity(false, name.parentElement);
-            setVisibility(false, nameLabel.lastElementChild);
+            setValidity(false, nameLabel);
+            setVisibility(true, nameLabel.lastElementChild);
             valid = false;
         } else {
-            setValidity(true, name.parentElement);
-            setVisibility(true, nameLabel.lastElementChild);
+            setValidity(true, nameLabel);
+            setVisibility(false, nameLabel.lastElementChild);
         }
 
         //Email
@@ -298,11 +310,11 @@ document.addEventListener("DOMContentLoaded", function() {
         const emailLabel = email.parentElement;
         if ( !validateForm.email(email.value) ) {
             setValidity(false, email.parentElement);
-            setVisibility(false, emailLabel.lastElementChild);
+            setVisibility(true, emailLabel.lastElementChild);
             valid = false;
         } else {
             setValidity(true, email.parentElement);
-            setVisibility(true, emailLabel.lastElementChild);
+            setVisibility(false, emailLabel.lastElementChild);
         }
 
         //Check if activities have been chosen
@@ -326,13 +338,12 @@ document.addEventListener("DOMContentLoaded", function() {
             const cardNumber = getDomElement('#cc-num');
             const cardNumberParent = getParentElement(cardNumber);
             if ( !validateForm.card('cardNumber', cardNumber.value) ) {
-                console.log("I am here")
                 setValidity(false, cardNumberParent);
-                setVisibility(false, cardNumberParent.lastElementChild);
+                setVisibility(true, cardNumberParent.lastElementChild);
                 paymentValid = false;
             } else {
                 setValidity(true, cardNumberParent);
-                setVisibility(true, cardNumberParent.lastElementChild);
+                setVisibility(false, cardNumberParent.lastElementChild);
             }
 
             //Check details of zip used for payment
@@ -340,11 +351,11 @@ document.addEventListener("DOMContentLoaded", function() {
             const zipParent = getParentElement(zip);
             if ( !validateForm.card('zip', zip.value) ) {
                 setValidity(false, zipParent);
-                setVisibility(false, zipParent.lastElementChild);
+                setVisibility(true, zipParent.lastElementChild);
                 paymentValid = false;
             } else {
                 setValidity(true, zipParent);
-                setVisibility(true, zipParent.lastElementChild);
+                setVisibility(false, zipParent.lastElementChild);
             }
 
             //Check details of ccv used for payment
@@ -353,11 +364,11 @@ document.addEventListener("DOMContentLoaded", function() {
             if ( !validateForm.card('ccv', ccv.value) ) {
                 // 
                 setValidity(false, ccvParent);
-                setVisibility(false, ccvParent.lastElementChild);
+                setVisibility(true, ccvParent.lastElementChild);
                 paymentValid = false;
             } else {
                 setValidity(true, ccvParent);
-                setVisibility(true, ccvParent.lastElementChild);
+                setVisibility(false, ccvParent.lastElementChild);
             }
 
             if ( !paymentValid ) {
