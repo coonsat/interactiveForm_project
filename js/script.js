@@ -165,13 +165,22 @@ document.addEventListener("DOMContentLoaded", function() {
     design.addEventListener('change', function() {
         if (this.value) {
             colour.disabled = false;
+            //Set index to be the maximum length of selectable options
+            let index = colour.options.length;
             Array.from(colour.options).forEach((option) => {
-                if (option.dataset.theme !== this.value) {
-                    option.style.display = "none"
-                } else {
+                if (option.dataset.theme === this.value) {
                     option.style.display = "inline";
+                    //if index of option is less than index then
+                    //overwrite this value to set the first field
+                    index = option.index < index ? option.index : index;
+                } else {
+                    option.style.display = "none"
                 }
+                console.log(option)
             });
+            //Set drop down selection to be the smallest index of the 
+            //applicable fields
+            colour.selectedIndex = index;
         } else {
             colour.disabled = true;
         }
